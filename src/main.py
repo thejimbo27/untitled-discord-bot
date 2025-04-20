@@ -18,14 +18,12 @@ if token is None:
 
 random = Random()
 
-game_state = {
-    "cards": {},
-    "games": {},
-}
+game_state = {}
+all_cards = {}
 with open("data/cards.csv", newline="") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
-        game_state["cards"][row[0]] = {
+        all_cards[row[0]] = {
             "rarity": row[1],
             "color": row[2],
             "value": row[3],
@@ -40,34 +38,40 @@ with open("data/basic_deck.csv", newline="") as csvfile:
 
 def new_game(channel):
     if not channel.id in game_state:
-        game_state["games"][channel.id] = {"status": "open", "players": {}}
-        return True
-    return False
-
-
-def join_game(player, channel):
-    game = game_state["games"][channel.id]
-    game_is_open = game["status"] == "open"
-    player_is_joined = player.id in game["players"]
-    if game_is_open and not player_is_joined:
-        starting_deck = get_player_starting_deck(player)
-        hand = starting_deck[0:7]
-        deck = starting_deck[7:]
-        game_state["games"][channel.id]["players"][player.id] = {
-            "name": player.name,
-            "deck": deck,
-            "hand": hand,
+        game_state[channel.id] = {
+            "status": "open",
+            "players": {},
+            "initiative": []
         }
         return True
     return False
 
 
+def join_game(player, channel):
+    game = game_state[channel.id]
+    game_is_open = game["status"] == "open"
+    player_is_joined = player.id in game["players"]
+    if game_is_open and not player_is_joined:
+        starting_deck = get_player_starting_deck(player)
+        random.shuffle(starting_deck)
+        hand = starting_deck[0:7]
+        deck = starting_deck[7:]
+        game_state[channel.id]["players"][player.id] = {
+            "name": player.name,
+            "deck": deck,
+            "hand": hand,
+        }
+        game_state[channel.id]["initiative"].append(player.id)
+        return True
+    return False
+
+
 def start_game(channel):
-    game = game_state["games"][channel.id]
+    game = game_state[channel.id]
     game_is_open = game["status"] == "open"
     lobby_size = len(game["players"])
     if game_is_open and lobby_size > 0:
-        game_state["games"][channel.id]["status"] = "closed"
+        game_state[channel.id]["status"] = "closed"
         return True
     return False
 
@@ -162,7 +166,7 @@ async def start(interaction):
     channel = interaction.channel
     if start_game(channel):
         response = f"Game in channel {channel} has started"
-        for player in game_state["games"][channel.id]["players"].values():
+        for player in game_state[channel.id]["players"].values():
             response += f"\nPlayer {player['name']}'s deck: {player['deck']}"
             response += f"\nPlayer {player['name']}'s hand: {player['hand']}"
         await interaction.response.send_message(response)
