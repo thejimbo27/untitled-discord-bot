@@ -21,7 +21,7 @@ A Discord bot that implements a card game system with deck management and multip
 
 1. Clone the repository:
 ```bash
-git clone [your-repository-url]
+git clone https://github.com/thejimbo27/untitled-discord-bot.git
 cd untitled-discord-bot
 ```
 
@@ -64,7 +64,10 @@ The bot uses SQLite to store player data:
 
 ## Contributing
 
-Feel free to submit issues and enhancement requests!
+#420Hackaton
+Jimbo
+Scoopahdoopah
+
 
 ## License
 
