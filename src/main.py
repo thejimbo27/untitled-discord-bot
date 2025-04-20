@@ -2,9 +2,11 @@ import csv
 import os
 import sqlite3
 from random import Random
+from winreg import QueryValue
 
 import discord
-from discord import Client
+from discord import Client, player
+from discord import ui
 from discord.app_commands import CommandTree
 from dotenv import load_dotenv
 
@@ -27,6 +29,7 @@ with open("data/cards.csv", newline="") as csvfile:
             "rarity": row[1],
             "color": row[2],
             "value": row[3],
+            "name": row[4],
         }
 
 basic_deck = []
@@ -41,7 +44,8 @@ def new_game(channel):
         game_state[channel.id] = {
             "status": "open",
             "players": {},
-            "initiative": []
+            "initiative": [],
+            "active_card": {},
         }
         return True
     return False
@@ -74,6 +78,16 @@ def start_game(channel):
         game_state[channel.id]["status"] = "closed"
         return True
     return False
+
+
+def play_card(player, channel, card_id):
+    game = game_state[channel.id]
+    if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0]:
+        return False
+    game_state[channel.id]["active_card"] = all_cards[card_id]
+    game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
+    game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+    return True
 
 
 def serialize_cards(cards):
@@ -147,7 +161,7 @@ async def new(interaction):
         await interaction.response.send_message(f"New game in channel {channel}")
 
 
-@tree.command(name="join", description="join a game")
+@tree.command(name="join", description="Join a game")
 async def join(interaction):
     (channel, player) = (interaction.channel, interaction.user)
     if interaction.user == client.user:
@@ -156,19 +170,39 @@ async def join(interaction):
     if not player_exists_in_db(player):
         create_player_in_db(player, basic_deck)
     if join_game(player, channel):
-        await interaction.response.send_message(
-            f"Player {player} joined game in channel {channel}"
-        )
+        response = 'You have the following cards in your hand:'
+        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+            response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        await interaction.response.send_message(response, ephemeral=True)
 
 
-@tree.command(name="start", description="start a game")
+@tree.command(name="play", description="Play a card from your hand")
+async def play(interaction, card_id: str):
+    """This command plays a card from your hand.
+
+    Parameters
+    -----------
+    card_id: str
+        The ID of the card to play.
+    """
+
+    (channel, player) = (interaction.channel, interaction.user)
+    if play_card(player, channel, card_id):
+        next_player_id = game_state[channel.id]["initiative"][0]
+        next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
+        response = f"{player.name} played {all_cards[card_id]['name']}"
+        response += f"\n{next_player_name}, it is your turn."
+        await interaction.response.send_message(response)
+
+
+@tree.command(name="start", description="Start a game")
 async def start(interaction):
     channel = interaction.channel
     if start_game(channel):
         response = f"Game in channel {channel} has started"
-        for player in game_state[channel.id]["players"].values():
-            response += f"\nPlayer {player['name']}'s deck: {player['deck']}"
-            response += f"\nPlayer {player['name']}'s hand: {player['hand']}"
+        player_id = game_state[channel.id]["initiative"][0]
+        player_name = game_state[channel.id]["players"][player_id]["name"]
+        response += f"\n{player_name}, it is your turn."
         await interaction.response.send_message(response)
 
 client.run(token)
