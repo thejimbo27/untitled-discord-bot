@@ -77,6 +77,10 @@ def serialize_cards(cards):
     return ",".join(cards)
 
 
+def deserialize_cards(cards):
+    return cards[0][0].split(",")
+
+
 sql_connection = sqlite3.connect("game.db")
 cursor = sql_connection.cursor()
 
@@ -95,18 +99,17 @@ def create_tables():
 
 def player_exists_in_db(player):
     cursor.execute("SELECT * FROM players WHERE id = ?", (player.id,))
-    return cursor.fetchall()
+    return cursor.fetchone() is not None
 
 
 def create_player_in_db(player, deck):
-    deck = ",".join(deck)
-    cursor.execute("INSERT INTO players VALUES (?, ?)", (player.id, deck))
+    cursor.execute("INSERT INTO players VALUES (?, ?)", (player.id, serialize_cards(deck)))
     return cursor.fetchall()
 
 
 def get_player_starting_deck(player):
     cursor.execute("SELECT deck FROM players WHERE id = ?", (player.id,))
-    return cursor.fetchall()[0][0].split(",")
+    return deserialize_cards(cursor.fetchall())
 
 
 intents = discord.Intents.default()
@@ -117,6 +120,8 @@ tree = CommandTree(client)
 
 @client.event
 async def on_ready():
+    if not get_player_table():
+        create_tables()
     print(f"We have logged in as {client.user}")
 
 
@@ -139,19 +144,14 @@ async def new(interaction):
         await interaction.response.send_message(f"New game in channel {channel}")
 
 
-@tree.command(
-    name="join",
-    description="join a game",
-)
+@tree.command(name="join", description="join a game")
 async def join(interaction):
-    (channel, player) = (interaction.channel, interaction.player)
+    (channel, player) = (interaction.channel, interaction.user)
     if interaction.user == client.user:
         return
 
-    if interaction.user == client.user:
-        return
     if not player_exists_in_db(player):
-        create_player_in_db(player, serialize_cards(basic_deck))
+        create_player_in_db(player, basic_deck)
     if join_game(player, channel):
         await interaction.response.send_message(
             f"Player {player} joined game in channel {channel}"
@@ -162,9 +162,10 @@ async def join(interaction):
 async def start(interaction):
     channel = interaction.channel
     if start_game(channel):
-        await interaction.response.send_message(
-            f"Game in channel {channel} has started"
-        )
-
+        response = f"Game in channel {channel} has started"
+        for player in game_state["games"][channel.id]["players"].values():
+            response += f"\nPlayer {player['name']}'s deck: {player['deck']}"
+            response += f"\nPlayer {player['name']}'s hand: {player['hand']}"
+        await interaction.response.send_message(response)
 
 client.run(token)
