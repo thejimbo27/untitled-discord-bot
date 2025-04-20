@@ -8,10 +8,10 @@ from discord import Client
 from discord.app_commands import CommandTree
 from dotenv import load_dotenv
 
-DATA_DIR = os.path.dirname(os.path.abspath(__file__)) + "/../data/"
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
+DATA_DIR = os.getenv('DATA_DIR')
 
 if token is None:
     print("DISCORD_TOKEN env not set")
