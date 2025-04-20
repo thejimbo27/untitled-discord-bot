@@ -53,7 +53,7 @@ def player_is_joined(player, channel):
     return cursor.fetchall()
 
 def game_is_accepting_players(channel):
-    cursor.execute("SELECT * FROM channels WHERE channel = ? AND accepting_new_players = ?", (channel, True))
+    cursor.execute("SELECT * FROM game_state WHERE channel = ? AND accepting_new_players = ?", (channel, True))
     return cursor.fetchall()
 
 
