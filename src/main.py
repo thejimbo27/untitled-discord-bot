@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
-DATA_DIR = os.getenv('DATA_DIR')
 
 if token is None:
     print("DISCORD_TOKEN env not set")
@@ -23,7 +22,7 @@ game_state = {
     "cards": {},
     "games": {},
 }
-with open(DATA_DIR + "cards.csv", newline="") as csvfile:
+with open("data/cards.csv", newline="") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         game_state["cards"][row[0]] = {
@@ -33,7 +32,7 @@ with open(DATA_DIR + "cards.csv", newline="") as csvfile:
         }
 
 basic_deck = []
-with open(DATA_DIR + "basic_deck.csv", newline="") as csvfile:
+with open("data/basic_deck.csv", newline="") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         basic_deck.append(row[0])
