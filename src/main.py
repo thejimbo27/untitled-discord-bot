@@ -1,22 +1,25 @@
-import discord
-import os
-from random import Random
-from dotenv import load_dotenv
-import sqlite3
 import csv
+import os
+import sqlite3
+from random import Random
+
+import discord
+from dotenv import load_dotenv
 
 load_dotenv()
-token = os.getenv('DISCORD_TOKEN')
+token = os.getenv("DISCORD_TOKEN")
 
+if token is None:
+    print("DISCORD_TOKEN env not set")
+    exit()
 
 random = Random()
-
 
 game_state = {
     "cards": {},
     "games": {},
 }
-with open('../data/cards.csv', newline='') as csvfile:
+with open("../data/cards.csv", newline="") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         game_state["cards"][row[0]] = {
@@ -26,10 +29,11 @@ with open('../data/cards.csv', newline='') as csvfile:
         }
 
 starting_deck = []
-with open('../data/starting_deck.csv', newline='') as csvfile:
+with open("../data/starting_deck.csv", newline="") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         starting_deck.append(row[0])
+
 
 def new_game(channel):
     if not channel.id in game_state:
@@ -39,6 +43,7 @@ def new_game(channel):
         }
         return True
     return False
+
 
 def join_game(player, channel):
     game = game_state["games"][channel.id]
@@ -55,6 +60,7 @@ def join_game(player, channel):
         }
         return True
     return False
+
 
 def start_game(channel):
     game = game_state["games"][channel.id]
@@ -73,21 +79,27 @@ sql_connection = sqlite3.connect("game.db")
 cursor = sql_connection.cursor()
 
 def get_player_table():
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='players'")
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='players'"
+    )
     return cursor.fetchall()
+
 
 def create_tables():
     cursor.execute("CREATE TABLE players(id, deck)")
     return cursor.fetchall()
 
+
 def player_exists_in_db(player):
     cursor.execute("SELECT * FROM players WHERE id = ?", (player.id,))
     return cursor.fetchall()
+
 
 def create_player_in_db(player, deck):
     deck = ",".join(deck)
     cursor.execute("INSERT INTO players VALUES (?, ?)", (player.id, deck))
     return cursor.fetchall()
+
 
 def get_player_starting_deck(player):
     cursor.execute("SELECT deck FROM players WHERE id = ?", (player.id,))
@@ -125,5 +137,5 @@ class MyClient(discord.Client):
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = MyClient(intents=intents, activity=discord.Game(name='Cuck Simulator 🕺'))
+client = MyClient(intents=intents, activity=discord.Game(name="Cuck Simulator 🕺"))
 client.run(token)
