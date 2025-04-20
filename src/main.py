@@ -14,6 +14,7 @@ random = Random()
 
 game_state = {
     "cards": {},
+    "games": {},
 }
 with open('../data/cards.csv', newline='') as csvfile:
     reader = csv.reader(csvfile)
@@ -32,7 +33,7 @@ with open('../data/starting_deck.csv', newline='') as csvfile:
 
 def new_game(channel):
     if not channel.id in game_state:
-        game_state[channel.id] = {
+        game_state["games"][channel.id] = {
             "status": "open",
             "players": {}
         }
@@ -40,13 +41,15 @@ def new_game(channel):
     return False
 
 def join_game(player, channel):
-    game_is_open = game_state[channel.id]["status"] == "open"
-    player_is_joined = player.id in game_state[channel.id]["players"]
+    game = game_state["games"][channel.id]
+    game_is_open = game["status"] == "open"
+    player_is_joined = player.id in game["players"]
     if game_is_open and not player_is_joined:
         starting_deck = get_player_starting_deck(player)
         hand = starting_deck[0:7]
         deck = starting_deck[7:]
-        game_state[channel.id]["players"][player.id] = {
+        game_state["games"][channel.id]["players"][player.id] = {
+            "name": player.name,
             "deck": deck,
             "hand": hand
         }
@@ -54,22 +57,16 @@ def join_game(player, channel):
     return False
 
 def start_game(channel):
-    game_is_open = game_state[channel.id]["status"] == "open"
-    lobby_size = len(game_state[channel.id]["players"])
+    game = game_state["games"][channel.id]
+    game_is_open = game["status"] == "open"
+    lobby_size = len(game["players"])
     if game_is_open and lobby_size > 0:
-        game_state[channel.id]["status"] = "closed"
-        for player in game_state[channel.id]["players"]:
-            channel.send(f"{player}'s deck: {player["deck"]}")
-            channel.send(f"{player}'s hand: {player["hand"]}")
+        game_state["games"][channel.id]["status"] = "closed"
         return True
     return False
 
-
 def serialize_cards(cards):
     return ",".join(cards)
-
-def deserialize_cards(cards):
-    return cards.split(",")
 
 
 sql_connection = sqlite3.connect("game.db")
@@ -88,13 +85,13 @@ def player_exists_in_db(player):
     return cursor.fetchall()
 
 def create_player_in_db(player, deck):
+    deck = ",".join(deck)
     cursor.execute("INSERT INTO players VALUES (?, ?)", (player.id, deck))
     return cursor.fetchall()
 
 def get_player_starting_deck(player):
     cursor.execute("SELECT deck FROM players WHERE id = ?", (player.id,))
-    deck = deserialize_cards(cursor.fetchall()[0])
-    return deck
+    return cursor.fetchall()[0][0].split(",")
 
 
 class MyClient(discord.Client):
@@ -106,20 +103,23 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         if message.author == self.user:
             return
-        player = message.author
+        author = message.author
         channel = message.channel
-        if not player_exists_in_db(player):
-            create_player_in_db(player, serialize_cards(starting_deck))
-        print(f'Message from {player}: {message.content}')
+        if not player_exists_in_db(author):
+            create_player_in_db(author, starting_deck)
+        print(f'Message from {author}: {message.content}')
         if message.content.startswith('!new'):
             if new_game(channel):
                 await channel.send(f'New game in channel {channel}')
         if message.content.startswith('!join'):
-            if join_game(player, channel):
-                await channel.send(f'Player {player} joined game in channel {channel}')
+            if join_game(author, channel):
+                await channel.send(f'Player {author} joined game in channel {channel}')
         if message.content.startswith('!start'):
             if start_game(channel):
                 await channel.send(f'Game in channel {channel} has started')
+                for player in game_state["games"][channel.id]["players"].values():
+                    await channel.send(f"{player["name"]}'s deck: {player["deck"]}")
+                    await channel.send(f"{player["name"]}'s hand: {player["hand"]}")
 
 
 intents = discord.Intents.default()
