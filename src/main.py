@@ -28,11 +28,11 @@ with open("../data/cards.csv", newline="") as csvfile:
             "value": row[3],
         }
 
-starting_deck = []
-with open("../data/starting_deck.csv", newline="") as csvfile:
+basic_deck = []
+with open("../data/basic_deck.csv", newline="") as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
-        starting_deck.append(row[0])
+        basic_deck.append(row[0])
 
 
 def new_game(channel):
@@ -118,7 +118,7 @@ class MyClient(discord.Client):
         author = message.author
         channel = message.channel
         if not player_exists_in_db(author):
-            create_player_in_db(author, starting_deck)
+            create_player_in_db(author, basic_deck)
         print(f'Message from {author}: {message.content}')
         if message.content.startswith('!new'):
             if new_game(channel):
