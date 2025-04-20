@@ -75,7 +75,7 @@ class MyClient(discord.Client):
         if game_state and game_is_accepting_players(channel.id) and not player_is_joined(message.author.id, channel.id) and message.content.startswith('!join'):
             await channel.send(f'Player {message.author} joined game in channel {message.channel}')
             join_game(message.author.id, channel.id)
-        if game_state and message.content.startswith('!start'):
+        if game_state and game_is_accepting_players(channel.id) and message.content.startswith('!start'):
             await channel.send(f'Game in channel {message.channel} has started')
             start_game(channel.id)
 
