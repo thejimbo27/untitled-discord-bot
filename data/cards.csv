@@ -38,7 +38,7 @@
 0037,0,blue,7,blue 7
 0038,0,blue,8,blue 8
 0039,0,blue,9,blue 9
-0040,1,red,-1,red skip
-0041,1,yellow,-1,yellow skip
-0042,1,green,-1,green skip
-0043,1,blue,-1,blue skip
+0040,1,red,skip,red skip
+0041,1,yellow,skip,yellow skip
+0042,1,green,skip,green skip
+0043,1,blue,skip,blue skip

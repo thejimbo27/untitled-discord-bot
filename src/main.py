@@ -4,7 +4,7 @@ import sqlite3
 from random import Random
 
 import discord
-from discord import Client, player
+from discord import Client
 from discord.app_commands import CommandTree
 from dotenv import load_dotenv
 
@@ -26,7 +26,7 @@ with open("data/cards.csv", newline="") as csvfile:
         all_cards[row[0]] = {
             "rarity": row[1],
             "color": row[2],
-            "value": row[3],
+            "face": row[3],
             "name": row[4],
         }
 
@@ -80,9 +80,15 @@ def start_game(channel):
 
 def play_card(player, channel, card_id):
     game = game_state[channel.id]
+    card = all_cards[card_id]
     if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0]:
         return False
-    game_state[channel.id]["active_card"] = all_cards[card_id]
+    if game["active_card"] == {}:
+        game_state[channel.id]["active_card"] = card
+        game = game_state[channel.id]
+    if card["color"] != game["active_card"]["color"] and card["face"] != game["active_card"]["face"]:
+        return False
+    game_state[channel.id]["active_card"] = card
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
     game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
     return True
