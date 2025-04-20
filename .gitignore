@@ -7,5 +7,5 @@ pyvenv.cfg
 
 .env
 
-players.db
-players.db-journal
+game.db
+game.db-journal
