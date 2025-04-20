@@ -10,15 +10,15 @@ token = os.getenv('DISCORD_TOKEN')
 random = Random()
 
 
+
 class MyClient(discord.Client):
     async def on_ready(self):
-        print(f'Logged on as {self.user}!')
+        print(f"Logged on as {self.user}!")
 
     async def on_message(self, message):
         print(f'Message from {message.author}: {message.content}')
         if message.author == self.user:
             return
-
         channel = self.get_channel(1363384148227784755)
         msg = random.randint(1,6)
         if msg == 1:
