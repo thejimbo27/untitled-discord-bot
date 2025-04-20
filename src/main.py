@@ -2,11 +2,9 @@ import csv
 import os
 import sqlite3
 from random import Random
-from winreg import QueryValue
 
 import discord
 from discord import Client, player
-from discord import ui
 from discord.app_commands import CommandTree
 from dotenv import load_dotenv
 
