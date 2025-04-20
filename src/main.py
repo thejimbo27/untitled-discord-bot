@@ -194,9 +194,14 @@ async def play(interaction, card_id: str):
     if play_card(player, channel, card_id):
         next_player_id = game_state[channel.id]["initiative"][0]
         next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
-        response = f"{player.name} played {all_cards[card_id]['name']}"
-        response += f"\n{next_player_name}, it is your turn."
-        await interaction.response.send_message(response)
+        send = f"{player.name} played {all_cards[card_id]['name']}"
+        send += f"\n{next_player_name}, it is your turn."
+        await channel.send(send)
+
+        response = 'You have the following cards in your hand:'
+        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+            response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        await interaction.response.send_message(response, ephemeral=True)
 
 
 @tree.command(name="start", description="Start a game")
