@@ -95,23 +95,15 @@ def play_card(player, channel, card_id):
         return False
     if game["active_card"]["name"] == None:
         game_state[channel.id]["active_card"] = card
-    if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"] and card["color"] != "wild":
+    if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"]:
         return False
-    if card["color"] == "wild":
-        card["color"] = game["active_card"]["color"]
-    if card["face"] == "wild":
-        card["face"] = game["active_card"]["face"]
-    game_state[channel.id]["active_card"] = card
+    game_state[channel.id]["active_card"] = all_cards[card_id]
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
-    if len(game_state[channel.id]["players"][player.id]["hand"]) == 0:
-        game_state[channel.id]["status"] = "complete"
-        return True
     if card["face"] == "skip":
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     if card["face"] == "reverse":
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][::-1]
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     if card["face"] == "draw2":
         next_player = game_state[channel.id]["initiative"][1]
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
@@ -231,8 +223,18 @@ async def join(interaction):
     if not player_exists_in_db(player):
         create_player_in_db(player, basic_deck)
     if join_game(player, channel):
-        response = f"{player.name} joined the game!"
-        await interaction.response.send_message(response)
+        send = f"{player.name} joined the game!"
+        await channel.send(send)
+
+        response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+        response += '\nYou have the following cards in your hand:'
+        for card_id in game_state[channel.id]["players"][player.id]["hand"]:
+            response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        for player in game_state[channel.id]["players"]:
+            num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+            player_name = game_state[channel.id]["players"][player]["name"]
+            response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
+        await interaction.response.send_message(response, ephemeral=True)
     else:
         await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
@@ -240,29 +242,20 @@ async def join(interaction):
 @tree.command()
 async def play(interaction):
     """This command plays a card from your hand."""
+    await interaction.response.send_message(view=PlayView(interaction), ephemeral=True)
+
+@tree.command(name="hand", description="View your hand")
+async def hand(interaction):
     (channel, player) = (interaction.channel, interaction.user)
     response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+    response += '\nYou have the following cards in your hand:'
+    for card_id in game_state[channel.id]["players"][player.id]["hand"]:
+        response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
     for player in game_state[channel.id]["players"]:
         num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
         player_name = game_state[channel.id]["players"][player]["name"]
         response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
-    await interaction.response.send_message(response, view=PlayView(interaction), ephemeral=True)
-
-
-@tree.command(name="draw", description="Draw a card from your deck")
-async def draw(interaction):
-    (channel, player) = (interaction.channel, interaction.user)
-    if draw_card(player, channel):
-        send = f"{player.name} drew a card."
-        await channel.send(send)
-        response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
-        for player in game_state[channel.id]["players"]:
-            num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
-            player_name = game_state[channel.id]["players"][player]["name"]
-            response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
-        await interaction.response.send_message(response, view=PlayView(interaction), ephemeral=True)
-    else:
-        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
+    await interaction.response.send_message(response, ephemeral=True)
 
 
 @tree.command()
@@ -282,21 +275,39 @@ class PlayView(View):
     def __init__(self, interaction):
         super().__init__()
     
-        async def cb(interaction, cid):
+        async def card_cb(interaction, cid):
             (channel, player) = (interaction.channel, interaction.user)
             if play_card(player, channel, cid):
                 await interaction.response.edit_message(content=f"You played {all_cards[cid]['name']}", view=None, delete_after=3)
 
                 next_player_id = game_state[channel.id]["initiative"][0]
+                next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
                 response = f"{player.name} played {all_cards[cid]['name']}"
-                response += f"\n<@{next_player_id}>, it is your turn."
-                await interaction.response.send_message(response)
+                response += f"\n{next_player_name}, it is your turn."
+                await channel.send(response)
+
+        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+            button = Button(label=f'{card_id}')
+            button.callback = partial(card_cb, cid=card_id)
+            self.add_item(button)
+
+        async def draw_cb(interaction):
+            (channel, player) = (interaction.channel, interaction.user)
+            if draw_card(player, channel):
+                send = f"{player.name} drew a card."
+                await channel.send(send)
+                response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+                for player in game_state[channel.id]["players"]:
+                    num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+                    player_name = game_state[channel.id]["players"][player]["name"]
+                    response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
+                await interaction.response.edit_message(content=response, view=PlayView(interaction))
             else:
                 await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
-        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
-            button = Button(label=f'{all_cards[card_id]["name"]}')
-            button.callback = partial(cb, cid=card_id)
-            self.add_item(button)
+        draw_button = Button(label=f'draw')
+        draw_button.callback = draw_cb
+
+        self.add_item(draw_button)
 
 client.run(token)
