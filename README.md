@@ -67,7 +67,7 @@ The bot uses SQLite to store player data:
 #420Hackaton
 Jimbo
 Scoopahdoopah
-
+riotctrl
 
 ## License
 
