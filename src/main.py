@@ -1,14 +1,14 @@
 import csv
 import os
 import sqlite3
-from functools import partial
 from random import Random
 
 import discord
 from discord import Client
 from discord.app_commands import CommandTree
-from discord.ui import View, Button
 from dotenv import load_dotenv
+
+from src.views import TestView
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -113,7 +113,8 @@ def draw_card(player, channel):
     game = game_state[channel.id]
     if player.id != game["initiative"][0] or game["status"] == "open":
         return False
-    game_state[channel.id]["players"][player.id]["hand"].append(game_state[channel.id]["players"][player.id]["deck"].pop(0))
+    game_state[channel.id]["players"][player.id]["hand"].append(
+        game_state[channel.id]["players"][player.id]["deck"].pop(0))
     return True
 
 
@@ -283,7 +284,7 @@ async def hand(interaction):
     await interaction.response.send_message(response, ephemeral=True)
 
 
-@tree.command(name="start", description="Start a game")
+@tree.command()
 async def start(interaction):
     """Start a game"""
     channel = interaction.channel
@@ -294,19 +295,6 @@ async def start(interaction):
         await interaction.response.send_message(response)
     else:
         await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
-
-
-class TestView(View):
-    def __init__(self):
-        super().__init__()
-
-        async def cb(interaction, x: int = 0):
-            await interaction.response.send_message(f"Button {x} pressed")
-
-        for x in range(0, 5):
-            button = Button(label=f"Button {x}")
-            button.callback = partial(cb, x=x)
-            self.add_item(button)
 
 
 client.run(token)
