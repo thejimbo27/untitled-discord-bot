@@ -92,6 +92,10 @@ def play_card(player, channel, card_id):
         return False
     if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0] or game["status"] == "open":
         return False
+    if game["active_card"]["name"] == None:
+        game_state[channel.id]["active_card"] = card
+    if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"]:
+        return False
     game_state[channel.id]["active_card"] = all_cards[card_id]
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
     if card["face"] == "skip":
@@ -101,6 +105,13 @@ def play_card(player, channel, card_id):
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][::-1]
     if card["face"] == "draw2":
         next_player = game_state[channel.id]["initiative"][1]
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+    if card["face"] == "draw4":
+        next_player = game_state[channel.id]["initiative"][1]
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
@@ -244,6 +255,8 @@ async def play(interaction, card_id: str):
         response = f"{player.name} played {all_cards[card_id]['name']}"
         if all_cards[card_id]["face"] == "draw2":
             response += f"\n{next_player_name} drew two cards!"
+        if all_cards[card_id]["face"] == "draw4":
+            response += f"\n{next_player_name} drew four cards!"
         response += f"\n<@{next_player_id}>, it is your turn."
         await interaction.response.send_message(response)
     else:
