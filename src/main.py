@@ -285,12 +285,11 @@ class PlayView(View):
         async def cb(interaction, cid):
             (channel, player) = (interaction.channel, interaction.user)
             if play_card(player, channel, cid):
-                await interaction.response.edit_message(content=f"You played {all_cards[cid]['name']}", view=None, delete_after=3)
-
                 next_player_id = game_state[channel.id]["initiative"][0]
-                response = f"{player.name} played {all_cards[cid]['name']}"
-                response += f"\n<@{next_player_id}>, it is your turn."
-                await interaction.response.send_message(response)
+                send = f"{player.name} played {all_cards[cid]['name']}"
+                send += f"\n<@{next_player_id}>, it is your turn."
+                await channel.send(send)
+                await interaction.response.edit_message(content=f"You played {all_cards[cid]['name']}", view=None, delete_after=3)
             else:
                 await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
