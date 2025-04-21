@@ -4,10 +4,9 @@ import sqlite3
 from random import Random
 
 import discord
-from discord import Client, player
+from discord import Client
 from discord.app_commands import CommandTree
 from dotenv import load_dotenv
-
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -84,7 +83,8 @@ def play_card(player, channel, card_id):
         return False
     game_state[channel.id]["active_card"] = all_cards[card_id]
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
-    game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+    game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id][
+                                                                                          "initiative"][:1]
     return True
 
 
@@ -152,15 +152,17 @@ async def ping(interaction):
     await interaction.response.send_message("pong")
 
 
-@tree.command(name="new", description="Create new game")
+@tree.command()
 async def new(interaction):
+    """Start a new game"""
     channel = interaction.channel
     if new_game(channel):
         await interaction.response.send_message(f"New game in channel {channel}")
 
 
-@tree.command(name="join", description="Join a game")
+@tree.command()
 async def join(interaction):
+    """Join a game"""
     (channel, player) = (interaction.channel, interaction.user)
     if interaction.user == client.user:
         return
@@ -174,7 +176,7 @@ async def join(interaction):
         await interaction.response.send_message(response, ephemeral=True)
 
 
-@tree.command(name="play", description="Play a card from your hand")
+@tree.command()
 async def play(interaction, card_id: str):
     """This command plays a card from your hand.
 
@@ -193,8 +195,9 @@ async def play(interaction, card_id: str):
         await interaction.response.send_message(response)
 
 
-@tree.command(name="start", description="Start a game")
+@tree.command()
 async def start(interaction):
+    """Start game"""
     channel = interaction.channel
     if start_game(channel):
         response = f"Game in channel {channel} has started"
@@ -202,5 +205,6 @@ async def start(interaction):
         player_name = game_state[channel.id]["players"][player_id]["name"]
         response += f"\n{player_name}, it is your turn."
         await interaction.response.send_message(response)
+
 
 client.run(token)
