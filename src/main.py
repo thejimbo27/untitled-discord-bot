@@ -1,13 +1,14 @@
 import csv
 import os
 import sqlite3
+from functools import partial
 from random import Random
 
 import discord
-from discord import Client, player
+from discord import Client
 from discord.app_commands import CommandTree
+from discord.ui import View, Button
 from dotenv import load_dotenv
-
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -80,6 +81,7 @@ def start_game(channel):
 
 def play_card(player, channel, card_id):
     game = game_state[channel.id]
+    card = all_cards[card_id]
     if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0]:
         return False
     game_state[channel.id]["active_card"] = all_cards[card_id]
@@ -159,20 +161,23 @@ async def on_message(message):
         await message.channel.send("registering commands")
 
 
-@tree.command(name="ping", description="ping")
+@tree.command()
 async def ping(interaction):
-    await interaction.response.send_message("pong")
+    """Ping the bot to check if it's alive"""
+    await interaction.response.send_message(view=TestView())
 
 
-@tree.command(name="new", description="Create new game")
+@tree.command()
 async def new(interaction):
+    """Start a new game"""
     channel = interaction.channel
     if new_game(channel):
         await interaction.response.send_message(f"New game in channel {channel}")
 
 
-@tree.command(name="join", description="Join a game")
+@tree.command()
 async def join(interaction):
+    """Join a game"""
     (channel, player) = (interaction.channel, interaction.user)
     if interaction.user == client.user:
         return
@@ -189,7 +194,7 @@ async def join(interaction):
         await interaction.response.send_message(response, ephemeral=True)
 
 
-@tree.command(name="play", description="Play a card from your hand")
+@tree.command()
 async def play(interaction, card_id: str):
     """This command plays a card from your hand.
 
@@ -232,6 +237,7 @@ async def draw(interaction):
 
 @tree.command(name="start", description="Start a game")
 async def start(interaction):
+    """Start a game"""
     channel = interaction.channel
     if start_game(channel):
         response = f"Game in channel {channel} has started"
@@ -239,5 +245,19 @@ async def start(interaction):
         player_name = game_state[channel.id]["players"][player_id]["name"]
         response += f"\n{player_name}, it is your turn."
         await interaction.response.send_message(response)
+
+
+class TestView(View):
+    def __init__(self):
+        super().__init__()
+
+        async def cb(interaction, x: int = 0):
+            await interaction.response.send_message(f"Button {x} pressed")
+
+        for x in range(0, 5):
+            button = Button(label=f"Button {x}")
+            button.callback = partial(cb, x=x)
+            self.add_item(button)
+
 
 client.run(token)
