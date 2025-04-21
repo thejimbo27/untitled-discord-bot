@@ -1,11 +1,13 @@
 import csv
 import os
 import sqlite3
+from functools import partial
 from random import Random
 
 import discord
 from discord import Client
 from discord.app_commands import CommandTree
+from discord.ui import View, Button
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -147,9 +149,10 @@ async def on_message(message):
         await message.channel.send("registering commands")
 
 
-@tree.command(name="ping", description="ping")
+@tree.command()
 async def ping(interaction):
-    await interaction.response.send_message("pong")
+    """Ping the bot to check if it's alive"""
+    await interaction.response.send_message(view=TestView())
 
 
 @tree.command()
@@ -197,7 +200,7 @@ async def play(interaction, card_id: str):
 
 @tree.command()
 async def start(interaction):
-    """Start game"""
+    """Start a game"""
     channel = interaction.channel
     if start_game(channel):
         response = f"Game in channel {channel} has started"
@@ -205,6 +208,19 @@ async def start(interaction):
         player_name = game_state[channel.id]["players"][player_id]["name"]
         response += f"\n{player_name}, it is your turn."
         await interaction.response.send_message(response)
+
+
+class TestView(View):
+    def __init__(self):
+        super().__init__()
+
+        async def cb(interaction, x: int = 0):
+            await interaction.response.send_message(f"Button {x} pressed")
+
+        for x in range(0, 5):
+            button = Button(label=f"Button {x}")
+            button.callback = partial(cb, x=x)
+            self.add_item(button)
 
 
 client.run(token)
