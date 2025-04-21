@@ -122,8 +122,9 @@ def play_card(player, channel, card_id):
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     if card["face"] == "draw4":
-        next_player = game_state[channel.id]["initiative"][1]
+        game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
         game_state[channel.id]["active_card"] = card
+        next_player = game_state[channel.id]["initiative"][1]
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
