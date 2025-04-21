@@ -103,23 +103,27 @@ def play_card(player, channel, card_id):
         if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"]:
             return False
         game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
+        game_state[channel.id]["active_card"] = card
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     if card["face"] == "reverse":
         if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"]:
             return False
         game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
+        game_state[channel.id]["active_card"] = card
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][::-1]
     if card["face"] == "draw2":
         if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"]:
             return False
         game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
+        game_state[channel.id]["active_card"] = card
         next_player = game_state[channel.id]["initiative"][1]
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     if card["face"] == "draw4":
         next_player = game_state[channel.id]["initiative"][1]
+        game_state[channel.id]["active_card"] = card
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
         game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
@@ -127,6 +131,10 @@ def play_card(player, channel, card_id):
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     else:
+        if game["active_card"]["color"] != card["color"] and game["active_card"]["face"] != card["face"]:
+            return False
+        game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
+        game_state[channel.id]["active_card"] = card
         game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     return True
 
@@ -278,7 +286,13 @@ async def join(interaction):
 @tree.command()
 async def play(interaction):
     """This command plays a card from your hand."""
-    await interaction.response.send_message(view=PlayView(interaction), ephemeral=True)
+    channel = interaction.channel
+    response = f"Last played: {game_state[channel.id]["active_card"]["name"]}"
+    for player in game_state[channel.id]["players"]:
+        player_name = game_state[channel.id]["players"][player]["name"]
+        num_of_cards = len(game_state[channel.id]["players"][player]["hand"])
+        response += f"\n{player_name} has {num_of_cards} cards in their hand."
+    await interaction.response.send_message(response, view=PlayView(interaction), ephemeral=True)
 
 
 @tree.command()
