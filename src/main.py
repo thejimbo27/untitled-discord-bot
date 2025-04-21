@@ -1,14 +1,14 @@
 import csv
 import os
 import sqlite3
-from functools import partial
 from random import Random
 
 import discord
 from discord import Client
 from discord.app_commands import CommandTree
-from discord.ui import View, Button
 from dotenv import load_dotenv
+
+from src.views import TestView
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -87,10 +87,13 @@ def play_card(player, channel, card_id):
     game_state[channel.id]["active_card"] = all_cards[card_id]
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
     if card["face"] == "skip":
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id][
+                                                                                              "initiative"][:1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id][
+                                                                                              "initiative"][:1]
     else:
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id][
+                                                                                              "initiative"][:1]
     return True
 
 
@@ -98,7 +101,8 @@ def draw_card(player, channel):
     game = game_state[channel.id]
     if player.id != game["initiative"][0]:
         return False
-    game_state[channel.id]["players"][player.id]["hand"].append(game_state[channel.id]["players"][player.id]["deck"].pop(0))
+    game_state[channel.id]["players"][player.id]["hand"].append(
+        game_state[channel.id]["players"][player.id]["deck"].pop(0))
     return True
 
 
@@ -213,21 +217,9 @@ async def play(interaction, card_id: str):
         await interaction.response.send_message(response)
 
 
-@tree.command(name="draw", description="Draw a card from your deck")
+@tree.command()
 async def draw(interaction):
-    (channel, player) = (interaction.channel, interaction.user)
-    if draw_card(player, channel):
-        send = f"{player.name} drew a card."
-        await channel.send(send)
-
-        response = 'You have the following cards in your hand:'
-        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
-            response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
-        await interaction.response.send_message(response, ephemeral=True)
-
-
-@tree.command(name="hand", description="View your hand")
-async def draw(interaction):
+    """Draw a card from your deck"""
     (channel, player) = (interaction.channel, interaction.user)
     response = 'You have the following cards in your hand:'
     for card_id in game_state[channel.id]["players"][player.id]["hand"]:
@@ -235,7 +227,7 @@ async def draw(interaction):
     await interaction.response.send_message(response, ephemeral=True)
 
 
-@tree.command(name="start", description="Start a game")
+@tree.command()
 async def start(interaction):
     """Start a game"""
     channel = interaction.channel
@@ -245,19 +237,6 @@ async def start(interaction):
         player_name = game_state[channel.id]["players"][player_id]["name"]
         response += f"\n{player_name}, it is your turn."
         await interaction.response.send_message(response)
-
-
-class TestView(View):
-    def __init__(self):
-        super().__init__()
-
-        async def cb(interaction, x: int = 0):
-            await interaction.response.send_message(f"Button {x} pressed")
-
-        for x in range(0, 5):
-            button = Button(label=f"Button {x}")
-            button.callback = partial(cb, x=x)
-            self.add_item(button)
 
 
 client.run(token)
