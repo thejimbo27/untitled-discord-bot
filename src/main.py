@@ -214,6 +214,42 @@ async def ping(interaction):
 
 
 @tree.command()
+async def help(interaction):
+    """Get help about available commands and how to play"""
+    help_message = """**🎮 Card Game Bot Commands**
+
+**Game Setup:**
+`/new` - Create a new game in the current channel
+`/join` - Join the current game in the channel
+`/start` - Start the game with all joined players
+
+**Gameplay:**
+`/play` - Play a card from your hand
+`/draw` - Draw a card from your deck
+`/hand` - View your current hand
+
+**Other:**
+`/ping` - Check if the bot is responsive
+`/help` - Show this help message
+
+**How to Play:**
+1. Use `/new` to create a game
+2. Have other players join with `/join`
+3. Start the game with `/start`
+4. Players take turns playing cards that match either the color or number of the last played card
+5. Special cards:
+   - Skip: Skips the next player's turn
+   - Reverse: Reverses the turn order
+   - Draw 2: Makes the next player draw two cards
+6. Use `/draw` if you can't play any cards
+7. First player to empty their hand wins!
+
+For more information, check out the [GitHub repository](https://github.com/thejimbo27/untitled-discord-bot)."""
+    
+    await interaction.response.send_message(help_message)
+
+
+@tree.command()
 async def new(interaction):
     """Start a new game"""
     channel = interaction.channel
