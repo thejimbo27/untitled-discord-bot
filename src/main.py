@@ -281,21 +281,42 @@ async def start(interaction):
 class PlayView(View):
     def __init__(self, interaction):
         super().__init__()
-    
-        async def cb(interaction, cid):
+
+        async def card_cb(interaction, cid):
             (channel, player) = (interaction.channel, interaction.user)
             if play_card(player, channel, cid):
                 next_player_id = game_state[channel.id]["initiative"][0]
                 send = f"{player.name} played {all_cards[cid]['name']}"
                 send += f"\n<@{next_player_id}>, it is your turn."
                 await channel.send(send)
-                await interaction.response.edit_message(content=f"You played {all_cards[cid]['name']}", view=None, delete_after=3)
+                await interaction.response.edit_message(content=f"You played {all_cards[cid]['name']}", view=None,
+                                                        delete_after=3)
             else:
                 await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
         for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
             button = Button(label=f'{all_cards[card_id]["name"]}')
-            button.callback = partial(cb, cid=card_id)
+            button.callback = partial(card_cb, cid=card_id)
             self.add_item(button)
+
+        async def draw_cb(interaction):
+            (channel, player) = (interaction.channel, interaction.user)
+            if draw_card(player, channel):
+                send = f"{player.name} drew a card."
+                await channel.send(send)
+                response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+                for player in game_state[channel.id]["players"]:
+                    num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+                    player_name = game_state[channel.id]["players"][player]["name"]
+                    response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
+                await interaction.response.edit_message(content=response, view=PlayView(interaction))
+            else:
+                await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
+
+        draw_button = Button(label=f'draw')
+        draw_button.callback = draw_cb
+
+        self.add_item(draw_button)
+
 
 client.run(token)
