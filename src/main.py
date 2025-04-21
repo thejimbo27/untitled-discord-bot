@@ -1,14 +1,15 @@
 import csv
 import os
 import sqlite3
+from functools import partial
 from random import Random
 
 import discord
 from discord import Client
 from discord.app_commands import CommandTree
+from discord.ui import Button, View
 from dotenv import load_dotenv
 
-from src.views import TestView
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -199,7 +200,7 @@ async def on_message(message):
 @tree.command()
 async def ping(interaction):
     """Ping the bot to check if it's alive"""
-    await interaction.response.send_message(view=TestView())
+    await interaction.response.send_message("pong")
 
 
 @tree.command()
@@ -239,28 +240,9 @@ async def join(interaction):
 
 
 @tree.command()
-async def play(interaction, card_id: str):
-    """This command plays a card from your hand.
-
-    Parameters
-    -----------
-    card_id: str
-        The ID of the card to play.
-    """
-
-    (channel, player) = (interaction.channel, interaction.user)
-    if play_card(player, channel, card_id):
-        next_player_id = game_state[channel.id]["initiative"][0]
-        next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
-        response = f"{player.name} played {all_cards[card_id]['name']}"
-        if all_cards[card_id]["face"] == "draw2":
-            response += f"\n{next_player_name} drew two cards!"
-        if all_cards[card_id]["face"] == "draw4":
-            response += f"\n{next_player_name} drew four cards!"
-        response += f"\n<@{next_player_id}>, it is your turn."
-        await interaction.response.send_message(response)
-    else:
-        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
+async def play(interaction):
+    """This command plays a card from your hand."""
+    await interaction.response.send_message(view=PlayView(interaction), ephemeral=True)
 
 
 @tree.command(name="draw", description="Draw a card from your deck")
@@ -309,5 +291,23 @@ async def start(interaction):
     else:
         await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
+
+class PlayView(View):
+    def __init__(self, interaction):
+        super().__init__()
+
+        async def cb(interaction, cid):
+            (channel, player) = (interaction.channel, interaction.user)
+            if play_card(player, channel, cid):
+                next_player_id = game_state[channel.id]["initiative"][0]
+                next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
+                response = f"{player.name} played {all_cards[cid]['name']}"
+                response += f"\n{next_player_name}, it is your turn."
+                await interaction.response.send_message(response)
+
+        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+            button = Button(label=f'{card_id}')
+            button.callback = partial(cb, cid=card_id)
+            self.add_item(button)
 
 client.run(token)
