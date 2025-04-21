@@ -8,6 +8,7 @@ from discord import Client
 from discord.app_commands import CommandTree
 from dotenv import load_dotenv
 
+from src.views import TestView
 
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
@@ -43,7 +44,12 @@ def new_game(channel):
             "status": "open",
             "players": {},
             "initiative": [],
-            "active_card": {},
+            "active_card": {
+                "rarity": None,
+                "color": None,
+                "face": None,
+                "name": None,
+            },
         }
         return True
     return False
@@ -80,17 +86,35 @@ def start_game(channel):
 
 def play_card(player, channel, card_id):
     game = game_state[channel.id]
-    card = all_cards[card_id]
-    if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0]:
+    try:
+        card = all_cards[card_id]
+    except KeyError:
         return False
-    if game["active_card"] == {}:
-        game_state[channel.id]["active_card"] = card
-        game = game_state[channel.id]
-    if card["color"] != game["active_card"]["color"] and card["face"] != game["active_card"]["face"]:
+    if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0] or game["status"] == "open":
         return False
-    game_state[channel.id]["active_card"] = card
+    game_state[channel.id]["active_card"] = all_cards[card_id]
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
-    game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+    if card["face"] == "skip":
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+    if card["face"] == "reverse":
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][::-1]
+    if card["face"] == "draw2":
+        next_player = game_state[channel.id]["initiative"][1]
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+    else:
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+    return True
+
+
+def draw_card(player, channel):
+    game = game_state[channel.id]
+    if player.id != game["initiative"][0] or game["status"] == "open":
+        return False
+    game_state[channel.id]["players"][player.id]["hand"].append(
+        game_state[channel.id]["players"][player.id]["deck"].pop(0))
     return True
 
 
@@ -133,6 +157,14 @@ def get_player_starting_deck(player):
     return deserialize_cards(cursor.fetchall())
 
 
+error_messages = [
+    "sum ting wong",
+    "wi tu lo",
+    "ho lee fuk",
+    "bang ding ow",
+]
+
+
 intents = discord.Intents.default()
 intents.message_content = True
 client = Client(intents=intents, activity=discord.Game(name="Cuck Simulator 🕺"))
@@ -153,20 +185,25 @@ async def on_message(message):
         await message.channel.send("registering commands")
 
 
-@tree.command(name="ping", description="ping")
+@tree.command()
 async def ping(interaction):
-    await interaction.response.send_message("pong")
+    """Ping the bot to check if it's alive"""
+    await interaction.response.send_message(view=TestView())
 
 
-@tree.command(name="new", description="Create new game")
+@tree.command()
 async def new(interaction):
+    """Start a new game"""
     channel = interaction.channel
     if new_game(channel):
         await interaction.response.send_message(f"New game in channel {channel}")
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
-@tree.command(name="join", description="Join a game")
+@tree.command()
 async def join(interaction):
+    """Join a game"""
     (channel, player) = (interaction.channel, interaction.user)
     if interaction.user == client.user:
         return
@@ -174,13 +211,23 @@ async def join(interaction):
     if not player_exists_in_db(player):
         create_player_in_db(player, basic_deck)
     if join_game(player, channel):
-        response = 'You have the following cards in your hand:'
-        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+        send = f"{player.name} joined the game!"
+        await channel.send(send)
+
+        response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+        response += '\nYou have the following cards in your hand:'
+        for card_id in game_state[channel.id]["players"][player.id]["hand"]:
             response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        for player in game_state[channel.id]["players"]:
+            num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+            player_name = game_state[channel.id]["players"][player]["name"]
+            response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
         await interaction.response.send_message(response, ephemeral=True)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
-@tree.command(name="play", description="Play a card from your hand")
+@tree.command()
 async def play(interaction, card_id: str):
     """This command plays a card from your hand.
 
@@ -194,24 +241,60 @@ async def play(interaction, card_id: str):
     if play_card(player, channel, card_id):
         next_player_id = game_state[channel.id]["initiative"][0]
         next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
-        send = f"{player.name} played {all_cards[card_id]['name']}"
-        send += f"\n{next_player_name}, it is your turn."
+        response = f"{player.name} played {all_cards[card_id]['name']}"
+        if all_cards[card_id]["face"] == "draw2":
+            response += f"\n{next_player_name} drew two cards!"
+        response += f"\n<@{next_player_id}>, it is your turn."
+        await interaction.response.send_message(response)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
+
+
+@tree.command(name="draw", description="Draw a card from your deck")
+async def draw(interaction):
+    (channel, player) = (interaction.channel, interaction.user)
+    if draw_card(player, channel):
+        send = f"{player.name} drew a card."
         await channel.send(send)
 
-        response = 'You have the following cards in your hand:'
-        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+        response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+        response += '\nYou have the following cards in your hand:'
+        for card_id in game_state[channel.id]["players"][player.id]["hand"]:
             response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        for player in game_state[channel.id]["players"]:
+            num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+            player_name = game_state[channel.id]["players"][player]["name"]
+            response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
         await interaction.response.send_message(response, ephemeral=True)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
-@tree.command(name="start", description="Start a game")
+@tree.command(name="hand", description="View your hand")
+async def hand(interaction):
+    (channel, player) = (interaction.channel, interaction.user)
+    response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+    response += '\nYou have the following cards in your hand:'
+    for card_id in game_state[channel.id]["players"][player.id]["hand"]:
+        response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+    for player in game_state[channel.id]["players"]:
+        num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+        player_name = game_state[channel.id]["players"][player]["name"]
+        response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
+    await interaction.response.send_message(response, ephemeral=True)
+
+
+@tree.command()
 async def start(interaction):
+    """Start a game"""
     channel = interaction.channel
     if start_game(channel):
         response = f"Game in channel {channel} has started"
         player_id = game_state[channel.id]["initiative"][0]
-        player_name = game_state[channel.id]["players"][player_id]["name"]
-        response += f"\n{player_name}, it is your turn."
+        response += f"\n<@{player_id}>, it is your turn."
         await interaction.response.send_message(response)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
+
 
 client.run(token)

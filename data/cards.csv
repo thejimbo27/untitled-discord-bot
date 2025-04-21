@@ -42,3 +42,11 @@
 0041,1,yellow,skip,yellow skip
 0042,1,green,skip,green skip
 0043,1,blue,skip,blue skip
+0044,1,red,reverse,red reverse
+0045,1,yellow,reverse,yellow reverse
+0046,1,green,reverse,green reverse
+0047,1,blue,reverse,blue reverse
+0048,1,red,draw2,red draw2
+0049,1,yellow,draw2,yellow draw2
+0050,1,green,draw2,green draw2
+0051,1,blue,draw2,blue draw2
