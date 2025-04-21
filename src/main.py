@@ -27,7 +27,7 @@ with open("data/cards.csv", newline="") as csvfile:
         all_cards[row[0]] = {
             "rarity": row[1],
             "color": row[2],
-            "value": row[3],
+            "face": row[3],
             "name": row[4],
         }
 
@@ -44,7 +44,12 @@ def new_game(channel):
             "status": "open",
             "players": {},
             "initiative": [],
-            "active_card": {},
+            "active_card": {
+                "rarity": None,
+                "color": None,
+                "face": None,
+                "name": None,
+            },
         }
         return True
     return False
@@ -81,22 +86,32 @@ def start_game(channel):
 
 def play_card(player, channel, card_id):
     game = game_state[channel.id]
-    card = all_cards[card_id]
-    if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0]:
+    try:
+        card = all_cards[card_id]
+    except KeyError:
+        return False
+    if card_id not in game["players"][player.id]["hand"] or player.id != game["initiative"][0] or game["status"] == "open":
         return False
     game_state[channel.id]["active_card"] = all_cards[card_id]
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
     if card["face"] == "skip":
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
+    if card["face"] == "reverse":
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][::-1]
+    if card["face"] == "draw2":
+        next_player = game_state[channel.id]["initiative"][1]
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["players"][next_player]["hand"].append(game_state[channel.id]["players"][next_player]["deck"].pop(0))
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     else:
-        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][-1:] + game_state[channel.id]["initiative"][:-1]
     return True
 
 
 def draw_card(player, channel):
     game = game_state[channel.id]
-    if player.id != game["initiative"][0]:
+    if player.id != game["initiative"][0] or game["status"] == "open":
         return False
     game_state[channel.id]["players"][player.id]["hand"].append(game_state[channel.id]["players"][player.id]["deck"].pop(0))
     return True
@@ -141,6 +156,14 @@ def get_player_starting_deck(player):
     return deserialize_cards(cursor.fetchall())
 
 
+error_messages = [
+    "sum ting wong",
+    "wi tu lo",
+    "ho lee fuk",
+    "bang ding ow",
+]
+
+
 intents = discord.Intents.default()
 intents.message_content = True
 client = Client(intents=intents, activity=discord.Game(name="Cuck Simulator 🕺"))
@@ -173,6 +196,8 @@ async def new(interaction):
     channel = interaction.channel
     if new_game(channel):
         await interaction.response.send_message(f"New game in channel {channel}")
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
 @tree.command()
@@ -188,10 +213,17 @@ async def join(interaction):
         send = f"{player.name} joined the game!"
         await channel.send(send)
 
-        response = 'You have the following cards in your hand:'
-        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+        response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+        response += '\nYou have the following cards in your hand:'
+        for card_id in game_state[channel.id]["players"][player.id]["hand"]:
             response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        for player in game_state[channel.id]["players"]:
+            num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+            player_name = game_state[channel.id]["players"][player]["name"]
+            response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
         await interaction.response.send_message(response, ephemeral=True)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
 @tree.command()
@@ -209,8 +241,12 @@ async def play(interaction, card_id: str):
         next_player_id = game_state[channel.id]["initiative"][0]
         next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
         response = f"{player.name} played {all_cards[card_id]['name']}"
-        response += f"\n{next_player_name}, it is your turn."
+        if all_cards[card_id]["face"] == "draw2":
+            response += f"\n{next_player_name} drew two cards!"
+        response += f"\n<@{next_player_id}>, it is your turn."
         await interaction.response.send_message(response)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
 @tree.command(name="draw", description="Draw a card from your deck")
@@ -220,18 +256,30 @@ async def draw(interaction):
         send = f"{player.name} drew a card."
         await channel.send(send)
 
-        response = 'You have the following cards in your hand:'
-        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+        response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+        response += '\nYou have the following cards in your hand:'
+        for card_id in game_state[channel.id]["players"][player.id]["hand"]:
             response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        for player in game_state[channel.id]["players"]:
+            num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+            player_name = game_state[channel.id]["players"][player]["name"]
+            response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
         await interaction.response.send_message(response, ephemeral=True)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
 @tree.command(name="hand", description="View your hand")
-async def draw(interaction):
+async def hand(interaction):
     (channel, player) = (interaction.channel, interaction.user)
-    response = 'You have the following cards in your hand:'
+    response = f'Last played: {game_state[channel.id]["active_card"]["name"]}'
+    response += '\nYou have the following cards in your hand:'
     for card_id in game_state[channel.id]["players"][player.id]["hand"]:
         response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+    for player in game_state[channel.id]["players"]:
+        num_cards_in_hand = len(game_state[channel.id]["players"][player]["hand"])
+        player_name = game_state[channel.id]["players"][player]["name"]
+        response += f"\n{player_name} has {num_cards_in_hand} cards in their hand"
     await interaction.response.send_message(response, ephemeral=True)
 
 
@@ -242,9 +290,10 @@ async def start(interaction):
     if start_game(channel):
         response = f"Game in channel {channel} has started"
         player_id = game_state[channel.id]["initiative"][0]
-        player_name = game_state[channel.id]["players"][player_id]["name"]
-        response += f"\n{player_name}, it is your turn."
+        response += f"\n<@{player_id}>, it is your turn."
         await interaction.response.send_message(response)
+    else:
+        await interaction.response.send_message(random.choice(error_messages), ephemeral=True)
 
 
 class TestView(View):
