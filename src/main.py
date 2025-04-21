@@ -206,7 +206,7 @@ async def ping(interaction):
 @tree.command()
 async def help(interaction):
     """Get help about available commands and how to play"""
-    help_message = """**🎮 Card Game Bot Commands**
+    help_message = """**untitled-discord-bot**
 
 **Game Setup:**
 `/new` - Create a new game in the current channel
