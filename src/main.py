@@ -90,7 +90,19 @@ def play_card(player, channel, card_id):
         return False
     game_state[channel.id]["active_card"] = card
     game_state[channel.id]["players"][player.id]["hand"].remove(card_id)
-    game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+    if card["face"] == "skip":
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+    else:
+        game_state[channel.id]["initiative"] = game_state[channel.id]["initiative"][1:] + game_state[channel.id]["initiative"][:1]
+    return True
+
+
+def draw_card(player, channel):
+    game = game_state[channel.id]
+    if player.id != game["initiative"][0]:
+        return False
+    game_state[channel.id]["players"][player.id]["hand"].append(game_state[channel.id]["players"][player.id]["deck"].pop(0))
     return True
 
 
@@ -174,6 +186,9 @@ async def join(interaction):
     if not player_exists_in_db(player):
         create_player_in_db(player, basic_deck)
     if join_game(player, channel):
+        send = f"{player.name} joined the game!"
+        await channel.send(send)
+
         response = 'You have the following cards in your hand:'
         for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
             response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
@@ -202,6 +217,28 @@ async def play(interaction, card_id: str):
         for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
             response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
         await interaction.response.send_message(response, ephemeral=True)
+
+
+@tree.command(name="draw", description="Draw a card from your deck")
+async def draw(interaction):
+    (channel, player) = (interaction.channel, interaction.user)
+    if draw_card(player, channel):
+        send = f"{player.name} drew a card."
+        await channel.send(send)
+
+        response = 'You have the following cards in your hand:'
+        for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
+            response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+        await interaction.response.send_message(response, ephemeral=True)
+
+
+@tree.command(name="hand", description="View your hand")
+async def draw(interaction):
+    (channel, player) = (interaction.channel, interaction.user)
+    response = 'You have the following cards in your hand:'
+    for card_id in game_state[channel.id]["players"][player.id]["hand"]:
+        response += f"\n[{card_id}] {all_cards[card_id]["name"]}"
+    await interaction.response.send_message(response, ephemeral=True)
 
 
 @tree.command(name="start", description="Start a game")
