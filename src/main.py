@@ -295,15 +295,17 @@ async def start(interaction):
 class PlayView(View):
     def __init__(self, interaction):
         super().__init__()
-
+    
         async def cb(interaction, cid):
             (channel, player) = (interaction.channel, interaction.user)
             if play_card(player, channel, cid):
+                await interaction.response.edit_message(content=f"You played {all_cards[cid]['name']}", view=None, delete_after=3)
+
                 next_player_id = game_state[channel.id]["initiative"][0]
                 next_player_name = game_state[channel.id]["players"][next_player_id]["name"]
                 response = f"{player.name} played {all_cards[cid]['name']}"
                 response += f"\n{next_player_name}, it is your turn."
-                await interaction.response.send_message(response)
+                await channel.send(response)
 
         for card_id in game_state[interaction.channel.id]["players"][interaction.user.id]["hand"]:
             button = Button(label=f'{card_id}')
